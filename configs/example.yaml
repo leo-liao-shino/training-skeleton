@@ -1,0 +1,27 @@
+# Sanity-check config — exercises the framework end-to-end with a tiny MLP
+# on synthetic data. No download required, runs on CPU.
+#
+# Launch:  python src/train.py --config configs/example.yaml --stage train
+
+project: example
+
+dataset:
+  train_n: 1024
+  val_n: 256
+  seed: 0
+
+model:
+  hidden: 128
+
+stages:
+  - name: train
+    batch_size: 64
+    learning_rate: 1.0e-3
+    weight_decay: 0.0
+    warmup_steps: 5
+    max_steps: 30
+    gradient_accumulation: 1
+    val_every: 10
+    save_every: 20
+    precision: fp32
+    max_grad_norm: 1.0
