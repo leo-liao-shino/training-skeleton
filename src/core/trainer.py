@@ -2,7 +2,7 @@
 BaseTrainer: generic training loop scaffolding (DDP wrap, AMP, grad accum,
 checkpoint cadence, validation cadence, logging cadence). Project-specific
 behavior lives in subclass hooks: build_model, build_data, forward_step,
-validation_step, init_logging, finalize_logging, on_step_log, on_window_log.
+validation_step, log_samples, init_logging, finalize_logging.
 
 The base class is intentionally framework-agnostic: it knows nothing about
 diffusion, latents, masks, or text conditioning.
@@ -28,8 +28,15 @@ class BaseTrainer:
     """Generic single-stage training loop.
 
     Subclasses must implement: build_model, build_data, forward_step.
-    Subclasses may override: build_optimizer, validation_step,
-    init_logging, finalize_logging, on_step_log, on_window_log.
+    Subclasses may override: build_optimizer, validation_step, log_samples,
+    init_logging, finalize_logging, on_step_log.
+
+    Per-stage validation knobs: an optional `validation:` block in each stage
+    config is exposed to subclasses as `self.val_cfg` (raw dict) and
+    `self.val_param(key, default)` (accessor). The base does not validate or
+    interpret keys — each project picks what it reads (e.g. multiview reads
+    num_samples/num_steps/num_loss_batches). Projects that ignore `val_cfg`
+    are unaffected. See `core/config.py` for the documented schema.
     """
 
     def __init__(
@@ -74,6 +81,13 @@ class BaseTrainer:
         else:
             raise ValueError(f"unknown precision: {precision!r}")
         self.use_scaler = precision == "fp16"
+
+        # Per-stage validation knobs. Untyped — see class docstring.
+        self.val_cfg: Dict[str, Any] = dict(phase_cfg.get("validation") or {})
+
+    def val_param(self, key: str, default: Any = None) -> Any:
+        """Convenience accessor for self.val_cfg.get(key, default)."""
+        return self.val_cfg.get(key, default)
 
     # ----------------------------------------------------------------- hooks
 
